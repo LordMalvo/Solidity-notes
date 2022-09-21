@@ -38,12 +38,73 @@ Asi, cuando se quiera interactuar con un contrato, se necesitará tanto su direc
 
 A continuación se muestra un ejemplo de como se veria una funcion dentro de la `ABI`:
 
-**Código dentro del fichero de Solidity**
-```Solidity
+**Función *suma* dentro del fichero de Solidity:**
+```solidity
 function suma(uint num1, uint num2) public pure returns(uint) {
-        return num1 + num2;
+    return num1 + num2;
+}
+```
+
+**Función *suma* dentro de la ABI:**
+```json
+{
+    "inputs": [
+    {
+        "internalType": "uint256",
+        "name": "num1",
+        "type": "uint256"
+    },
+    {
+        "internalType": "uint256",
+        "name": "num2",
+        "type": "uint256"
+    }
+    ],
+    "name": "suma",
+    "outputs": [
+    {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+    }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
 }
 ```
 
 ### ERC20 Approval flow
-Si queremos pagar o aceptar pagos de tokens ERC20, no es tan simple como utilizar una función 
+Si queremos pagar o aceptar pagos de tokens ERC20, no es tan simple como llamar a una funcion `payable`. Esta función solo es buena para pagos de ETH. 
+
+Para ello, el smart contract tendrá que, de alguna manera, substraer tokens de la persona que llame a dicha función. Aqui es cuando entra el flujo `Approve and transfer`.
+
+Imaginemos el siguiente caso:
+* Claudia quiere vender su NFT en su propia criptomoneda, ClaudiaCoin
+* Ese NFT cuesta 10 ClaudiaCoin
+* Pablo posee ClaudiaCoin y quiere comprarle el NFT
+* Pablo necesita llamar a una función dentro del smart contract del NFT de Claudia, que cogerá sus 10 ClaudiaCoin y le dará el NFT
+* Como los smart contracts no pueden aceptar un pago en ClaudiaCoin directamente, Claudia a implementado un flujo `Approval and transfer` dentro del contrato de su NFT.
+
+Partimos de la base de que `ClaudiaCoin` es un token ERC20, que ya viene implementado con ciertas funciones relacionadas con el concepto de *Allowance* (autorización en español):
+
+```solidity 
+approve(address spender, uint256 amount)
+```
+Permite a un usuario `aprovar` a diferentes direcciones que gasten cierta `cantidad` de tokens en su nombre. Es decir, se le esta dando autorización al `spender` para gastar hasta un cierto `amount`.
+
+```solidity 
+transferFrom(address from, address to, uint256 amount)
+```
+
+Permite a un usuario enviar una `cantidad` de tokens desde `from` hasta `to`. Si el usuario que llama a la función, es el mismo que el de la dirección `from`, los tokens son eliminados de su balance. En caso de que el usuario se otro diferente a `from`, `from` deberá antes haber dado autorización al usuario para gastar una `cantidad` de tokens usando la función `approve`.
+
+Volvemos al caso anterior:
+* Pablo da la autorización al contrato del NFT de Claudia para gastar 10 de sus `ClaudiaCoins` usando la función `approve`
+* Pablo llama a la función para comprar el NFT de Claudia en el contrato NFT de esta
+* La función de comprar, internamente llama a `transferFrom` en `ClaudiaCoin` y transfiere 10 ClaudiaCoins desde la cuenta de Pablo a la cuenta de Claudia
+* Como al contrato se le habia dado la autorización para gastar 10 ClaudiaCoins de la cuenta de Pablo, esta acción (de la función `transferFrom`) se permite
+* Claudia por lo tanto recibe sus 10 ClaudiaCoins y Pablo su NFT
+
+Es importante entender que el que llama a la función `transferFrom` es el contrato del NFT de Claudia, no Pablo.
+
+Por lo tanto, para que pablo haya podido transferir 10 tokens a la cuenta de Claudia, ha tenido que realizar dos transacciones: **Transacción 1** - Dar el permiso al contrato. **Transacción 2:** - Llamar a la función de compra del contrato del NFT de Claudia.
