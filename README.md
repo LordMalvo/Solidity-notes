@@ -2,9 +2,9 @@
 
 ## Indice
 ### 1. **[Providers, signers, ABIs y Approval Flows](##providers,-signers,-ABIs-y-Approval-Flows)**
-* **[Providers y signers](###providers-y-signers)**
-* **[BigNumbers](###BigNumbers)**
-* **[ABI](###ABI)**
+* **[Providers y signers](#providers-y-signers)**
+* **[BigNumbers](#bignumbers)**
+* **[ABI](#abi)**
 * **[ERC20 Approval flow](#erc20-approval-flow)**
 ## Providers, signers, ABIs y Approval Flows
 ### Providers y signers
