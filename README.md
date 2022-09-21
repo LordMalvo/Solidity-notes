@@ -5,7 +5,7 @@
 * **[Providers y signers](###providers-y-signers)**
 * **[BigNumbers](###BigNumbers)**
 * **[ABI](###ABI)**
-* **[ERC20 Approval flow](###erc20-approval-flow)**
+* **[ERC20 Approval flow](#erc20-approval-flow)**
 ## Providers, signers, ABIs y Approval Flows
 ### Providers y signers
 En Ethereum, para escribir o leer datos en la blockchain es necesario comunicarse a través de un nodo de Ethereum. Cada nodo tendra un estado dentro de la blockchain, que nos permitirá leer datos, mientras que si queremos escribirlos, será necesario el envio de transacciones.
