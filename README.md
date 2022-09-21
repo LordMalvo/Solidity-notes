@@ -1,7 +1,7 @@
 # Solidity-notes
 
 ## Indice
-### 1. **[Providers, signers, ABIs y Approval Flows](##providers,-signers,-ABIs-y-Approval-Flows)**
+### 1. **[Providers, signers, ABIs y Approval Flows](#providers,-signers,-abis-y-approval-flows)**
 * **[Providers y signers](#providers-y-signers)**
 * **[BigNumbers](#bignumbers)**
 * **[ABI](#abi)**
