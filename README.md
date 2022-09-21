@@ -36,5 +36,14 @@ La `ABI` nos permite precisamente conseguir esto. Cuando se compila un programa 
 
 Asi, cuando se quiera interactuar con un contrato, se necesitará tanto su dirección como su `ABI`. `ethers.js` por ejemplo, ya implementa esto, de manera que cuando nos comunicamos con un contrato, automaticamente codifica y decodifica las funciones a bytecode para poder comunicarnos con un nodo de Ethereum. 
 
+A continuación se muestra un ejemplo de como se veria una funcion dentro de la `ABI`:
+
+**Código dentro del fichero de Solidity**
+```Solidity
+function suma(uint num1, uint num2) public pure returns(uint) {
+        return num1 + num2;
+}
+```
+
 ### ERC20 Approval flow
 Si queremos pagar o aceptar pagos de tokens ERC20, no es tan simple como utilizar una función 
