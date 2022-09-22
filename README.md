@@ -57,7 +57,7 @@ A partir de estas definiciones, el token ERC20 se puede implementar de diferente
 Vamos a ver un ejemplo de autorización:
 
 1. Lo primero que hacemos es desplegar el contrato ERC20.sol, con todas las funciones implementadas. Le asignamos un supply de 1000.
-```c
+```console
 >>> token = ERC20.deploy(1000, {'from': accounts[0]})
 Transaction sent: 0xc1f05b27e18ab68ac3478b5b04aa26d2607995276ad79a983db72f5ea5473606
   Gas price: 0.0 gwei   Gas limit: 12000000   Nonce: 0
