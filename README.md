@@ -1,13 +1,74 @@
 # Solidity-notes
 
 ## Indice
-### 1. **[Providers, signers, ABIs y Approval Flows](#providers,-signers,-abis-y-approval-flows)**
+### 1. **[Implementación ERC20](#implementación-erc20)**
+* **[Interfaz IERC20](#interfaz-ierc20)**
+### 2. **[Providers, signers, ABIs y Approval Flows](#providers,-signers,-abis-y-approval-flows)**
 * **[Providers y signers](#providers-y-signers)**
 * **[BigNumbers](#bignumbers)**
 * **[ABI](#abi)**
 * **[ERC20 Approval flow](#erc20-approval-flow)**
-## Providers, signers, ABIs y Approval Flows
-### Providers y signers
+
+## **1.** Implementación ERC20
+
+### 1.1 Interfaz IERC20
+```solidity
+function totalSupply() external view returns(uint256);
+```
+* Función `totalSupply`: Devuelve la cantidad de tokens que existen. 
+  
+```solidity
+function balanceOf(address account) external view returns(uint256);
+```
+* Función `balanceOf`: Devuelve la cantidad de tokens que posee cierta dirección `account`. 
+
+```solidity
+function transfer(address recipient, uint256 amount) external returns(bool);
+```
+* Función `transfer`: Mueve una cantidad (`amount`) de tokens desde la cuenta que llama a la funcion hacia el `recipient`. Devuelve un valor booleano indicando si la transferencia ha sido exitosa o no. Además emite un evento `Transfer`.  
+
+```solidity
+function allowance(address owner, address spender) external view returns(uint256);
+```
+* Función `allowance`: Devuelve el número de tokens restantes que el `spender` va a poder gastar en nombre del `owner` a través de la función `transferFrom`. Este valor cambia en función de la llamada a la función `approve` y `transferFrom`.
+
+```solidity
+function approve(address spender, uint256 amount) external returns(bool);
+```
+* Función `approve`: Asigna una cantidad (`amount`) de tokens que el `spender` puede gastar en nombre de la persona que ha llamado a la función. Devuelve un valor booleano si la operación ha tenido éxito. Además emite un evento `Approval`.
+
+```solidity
+function transferFrom(address sender, address recipient, uint256 amount) external returns(bool);
+```
+* Función `transferFrom`: Mueve una cantidad (`amount`) de tokens desde el `sender` hacia el `recipient` usando el mecanismo de autorización. Los tokens se restan de los tokens autorizados a gastar de la persona que llama a la función y de la cuenta del `spender`. Devuelve un booleano si todo ha ido bien. Además emite un evento `Transfer`.
+
+```solidity
+event Transfer(address from, address to, uint256 amount);
+```
+* Evento `Transfer`: Se emite cuando se mueven tokens de una cuenta (`from`) a otra (`to`). 
+
+```solidity
+event Approval(address owner, address spender, uint256 value);
+```
+* Evento `Approval`: Se emite cuando el `owner` de una cuenta autoriza a una cuenta `spender` a gastar una cierta cantidad de tokens (`value`).
+
+A partir de estas definiciones, el token ERC20 se puede implementar de diferentes maneras siempre y cuando contenga como mínimo las funciones de la interfaz IERC20. Empresas como *Openzeppelin* han hecho su propia implementación, la cual es usada por desarrolladores como base para sus proyectos: [openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol)
+
+Vamos a ver un ejemplo de autorización:
+
+1. Lo primero que hacemos es desplegar el contrato ERC20.sol, con todas las funciones implementadas. Le asignamos un supply de 1000.
+```s
+>>> token = ERC20.deploy(1000, {'from': accounts[0]})
+Transaction sent: 0xc1f05b27e18ab68ac3478b5b04aa26d2607995276ad79a983db72f5ea5473606
+  Gas price: 0.0 gwei   Gas limit: 12000000   Nonce: 0
+  ERC20.constructor confirmed   Block: 1   Gas used: 474247 (3.95%)
+  ERC20 deployed at: 0x3194cBDC3dbcd3E11a07892e7bA5c3394048Cc87
+```
+
+Bien, en esta implementación de la funcion `transfer` lo que se esta haciendo es primero, comprobar que al persona que esta realizando la transaccion tiene tokes suficiences (primer *require*)
+
+## **2.** Providers, signers, ABIs y Approval Flows
+### 2.1 Providers y signers
 En Ethereum, para escribir o leer datos en la blockchain es necesario comunicarse a través de un nodo de Ethereum. Cada nodo tendra un estado dentro de la blockchain, que nos permitirá leer datos, mientras que si queremos escribirlos, será necesario el envio de transacciones.
 
 Un `provider`, es una conexión a un nodo de Ethereum que nos permite leer datos. Se usarán cuando llamemos a funciones que solo lean datos, obtengan el balance de alguna cuenta, obtengan información sobre alguna transacción, etc.
@@ -21,14 +82,14 @@ Un `signer`, es una conexión a un nodo de Ethereum que nos permite escribir dat
 
 Por ejemplo, Metamask, inyecta un `provider` en nuestro navegador, de manera, que otras aplicaciones puedan utilizar ese mismo `provider` para leer datos de la blockchain donde nuestra billetera este conectada. Como Metamask no puede ir por ahi compartiendo nuestra clave privada, lo que hace es permitir a las dApps obtener un `signer`. De esta manera cuando queremos enviar una transaccion con metamask a través de la blockchain, la ventana de Metamask salta preguntando al usuario si quiere confirmar esa transacción.
 
-### BigNumbers
+### 2.2 BigNumbers
 Cuando programamos con solidity, estamos muy acostumbrados a utilizar `uint256`, que tienen un rango que va desde `0` hasta `(2^256) - 1`, lo cual es un rango enorme. De normal se construyen interfaces con Javascript. El problema esque el tipo de dato `number` de Javascript tiene un limite mucho mas bajo que `uint256`.
 
 Imaginemos que Javascript llama a una función de un smart contract que devuelve un `uint256` muchísimo mas grande que lo que soporta un numero en Javascript, bien, simplemente, no lo soporta. Para ello, existe un tipo especial denominado `BigNumber`, y librerias como `ethers.js` y `web3.js`, ya tienen integrado soporte para `BigNumber`.
 
 `BigNumber` es una libreria para Javascript que implementa funciones matemáticas como `add`, `sub`, `mul`, `div`, etc.
 
-### ABI
+### 2.3 ABI
 Las siglas ABI provienen de **A**plication **B**inary **I**nterface.
 
 Cuando se compila código de Solidity, lo hace bajo el bytecode, que a final de cuentas es binario. Este no contiene ni que funciones existen en el contrato, ni que parametros contiene, ni que valores devuelven. No obstante, si quieres llamar a una funcion de Solidity desde dentro de una aplicacion web, necesitas alguna manera de llamar al bytecode correcto, es decir, necesitas convertir el nombre de las funciones y parametros a bytecode y viceversa. 
@@ -73,7 +134,7 @@ function suma(uint num1, uint num2) public pure returns(uint) {
 }
 ```
 
-### ERC20 Approval flow
+### 2.4 ERC20 Approval flow
 Si queremos pagar o aceptar pagos de tokens ERC20, no es tan simple como llamar a una funcion `payable`. Esta función solo es buena para pagos de ETH. 
 
 Para ello, el smart contract tendrá que, de alguna manera, substraer tokens de la persona que llame a dicha función. Aqui es cuando entra el flujo `Approve and transfer`.
