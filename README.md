@@ -56,7 +56,7 @@ A partir de estas definiciones, el token ERC20 se puede implementar de diferente
 
 Vamos a ver un ejemplo de autorización:
 
-1. Lo primero que hacemos es desplegar el contrato ERC20.sol, con todas las funciones implementadas. Le asignamos un supply de 1000.
+1. Lo primero que hacemos es desplegar el contrato ERC20.sol, con todas las funciones implementadas. Le asignamos un supply de 1000 y cedemos todos los tokens a la cuenta `accounts[0]`.
 ```s
 >>> token = ERC20.deploy(1000, {'from': accounts[0]})
 Transaction sent: 0xc1f05b27e18ab68ac3478b5b04aa26d2607995276ad79a983db72f5ea5473606
@@ -65,7 +65,71 @@ Transaction sent: 0xc1f05b27e18ab68ac3478b5b04aa26d2607995276ad79a983db72f5ea547
   ERC20 deployed at: 0x3194cBDC3dbcd3E11a07892e7bA5c3394048Cc87
 ```
 
-Bien, en esta implementación de la funcion `transfer` lo que se esta haciendo es primero, comprobar que al persona que esta realizando la transaccion tiene tokes suficiences (primer *require*)
+```s
+>>> token.totalSupply()
+1000
+>>> token.balanceOf(accounts[0])
+1000
+```
+
+1. Ahora `account[0]` hara una transferencia de 100 tokens a la cuenta `account[1]` y `account[2]`.
+
+```s
+>>> token.transfer(accounts[1], 100, {'from': accounts[0]})
+Transaction sent: 0x0dc4d73200744953a5f72335933ec3e63ab46e1713f9729f9e55ac9e39979ebf
+  Gas price: 0.0 gwei   Gas limit: 12000000   Nonce: 1
+  ERC20.transfer confirmed   Block: 2   Gas used: 51932 (0.43%)
+
+<Transaction '0x0dc4d73200744953a5f72335933ec3e63ab46e1713f9729f9e55ac9e39979ebf'>
+>>> token.transfer(accounts[2], 100, {'from': accounts[0]})
+Transaction sent: 0x68557d3de8dd80fbb265469f99cb243a6192c9fd02ba1e4e7055b24e434ffd59
+  Gas price: 0.0 gwei   Gas limit: 12000000   Nonce: 2
+  ERC20.transfer confirmed   Block: 3   Gas used: 51920 (0.43%)
+
+<Transaction '0x68557d3de8dd80fbb265469f99cb243a6192c9fd02ba1e4e7055b24e434ffd59'>
+>>> token.balanceOf(accounts[1])
+100
+>>> token.balanceOf(accounts[2])
+100
+```
+
+3. En este punto tenemos la siguiente situación:
+   * Balance de `accounts[0]`: 800 
+   * Balance de `accounts[1]`: 100
+   * Balance de `accounts[2]`: 100  
+
+4. Ahora `accounts[1]` va a dar permiso a `accounts[2]` para gastar hasta 50 tokens.
+```s
+>>> token.approve(accounts[2], 50, {'from': accounts[1]})
+Transaction sent: 0x698072c464a9c4c8ff9e5ea71e6fde00232c0c40a6b5ea0d9fd1552de6a781ef
+  Gas price: 0.0 gwei   Gas limit: 12000000   Nonce: 0
+  ERC20.approve confirmed   Block: 4   Gas used: 43983 (0.37%)
+
+<Transaction '0x698072c464a9c4c8ff9e5ea71e6fde00232c0c40a6b5ea0d9fd1552de6a781ef'>
+>>> token.allowance(accounts[1], accounts[2])
+50
+```
+5. Lo que va a pasar ahora es que cuando `accounts[2]` ejecute la funcion transferFrom, poniendo a `accounts[1]` como la dirección que envia los tokens, estos se van a restar del balance de `accounts[1]` y no del suyo.
+```s
+>>> token.transferFrom(accounts[1], accounts[0], 25, {'from': accounts[2]})
+Transaction sent: 0xef4d6dc50fb79e9a393cf634731623d57e8174fad91ce392859eceada66314ce
+  Gas price: 0.0 gwei   Gas limit: 12000000   Nonce: 0
+  ERC20.transferFrom confirmed   Block: 5   Gas used: 44670 (0.37%)
+
+<Transaction '0xef4d6dc50fb79e9a393cf634731623d57e8174fad91ce392859eceada66314ce'>
+```
+6. Ahora por lo tanto los balances se quedan tal que así:
+   * Balance de `accounts[1]`: 75, ya que `accounts[2]` ha gastado 25 tokens a su nombre.
+   * Balance de `accounts[2]`: 100, seguira siendo 100 ya que realmente el no ha gastado nada de su balance.
+   * Balande de `accounts[0]`: 825, es decir, los 800 que le quedaban mas los 25 que le ha transferido `accounts[2]`
+
+7. Por último, tener en cuenta que ahora a `accounts[2]` solo le quedan 25 tokens para gastar en nombre de `accounts[1]` de los 50 que tenia.
+
+```s
+>>> token.allowance(accounts[1], accounts[2])
+25
+```
+
 
 ## **2.** Providers, signers, ABIs y Approval Flows
 ### 2.1 Providers y signers
