@@ -3,7 +3,14 @@
 ## Indice
 ### 1. **[Implementación ERC20](#implementación-erc20)**
 * **[Interfaz IERC20](#interfaz-ierc20)**
-### 2. **[Providers, signers, ABIs y Approval Flows](#providers,-signers,-abis-y-approval-flows)**
+
+### 2. **[Implementación ERC721](#implementación-erc721)**
+* **[Interfaz ERC165](#interfaz-erc165)**
+* **[Interfaz ERC721TokenReceiver](#interfaz-erc721tokenreceiver)**
+* **[Interfaz IERC721](#interfaz-ierc721)**
+* **[Implementación ERC721](#implementación-erc721)**
+
+### 3. **[Providers, signers, ABIs y Approval Flows](#providers,-signers,-abis-y-approval-flows)**
 * **[Providers y signers](#providers-y-signers)**
 * **[BigNumbers](#bignumbers)**
 * **[ABI](#abi)**
@@ -130,9 +137,157 @@ Transaction sent: 0xef4d6dc50fb79e9a393cf634731623d57e8174fad91ce392859eceada663
 25
 ```
 
+## **2.** Implementación ERC721
 
-## **2.** Providers, signers, ABIs y Approval Flows
-### 2.1 Providers y signers
+### 2.1 Interfaz ERC165
+El estandar ERC165 es una manera de comprobar que el `fingerPrint` de un contrato coincide con el `fingerPrint` de una interface dada. La interface ERC165 solo contiene una funcion, `supportsInterface`:
+
+```solidity
+interface ERC165 {
+  function supportsInterface(bytes4 interfaceID) external view returns(bool);
+}
+```
+
+Por lo tanto, el contrato que implemente esta interface, (en este caso el ERC721) deberá implementar una función `supportsInterface` que cogerá un `interfaceId` y devolverá `true` si esa interface es soportada. Siendo `interfaceId` definido como *la operación XOR entre los selectores de todas las funciones en la interface*. 
+
+Cuando hablamos de selectores nos referimos a los primeros 4 bytes del hash de la función (*nombre_funcion(tipo_argumento_1, ..., tipo_argumento_n)* Nada más), es por eso que el argumento `interfaceId` es de tipo `bytes4`. Hay dos maneras de obtener este selector:
+
+1. 
+```solidity
+this.nombre_funcion.selector
+```
+2. 
+```solidity
+bytes4(keccak256("nombre_funcion(tipo_argumento)"))
+``` 
+Recordemos que al selector le da igual el nombre de los parametros, modificadores, mutabilidad, returns o el contenido de la función. 
+
+Ahora imaginemos que una interface consiste en tres funciones diferentes: `function1()`, `function2()`, `function3()`. En este caso, el `interfaceId` seria el siguiente:
+
+```solidity
+interfaceId = this.function1.selector ^ this.function2.selector ^this.function3.selector;
+``` 
+
+Por lo tanto, ahora vamos a ver como implemetamos esta interfaz ERC165 para que nuestro contrato ERC721 herede de ella y podamos ver que interfaces soporta. Lo que se hace, es guardar las interfaces soportadas en un mapping, para ahorrarnos tener que calcular todo el rato los `interfacesId`.
+
+```solidity
+contract CheckERC165 is ERC165 {
+  mapping (bytes4 => bool) internal supportedInterfaces;
+
+  constructor() {
+    supportedInterfaces[this.supportsInterface.selector] = true;
+  }
+
+  function supportsInterface(bytes4 interfaceId) external view returns(bool) {
+    return supportedInterfaces[interfaceId];
+  }
+}
+```
+
+La primera interface que deberá poder soportar es la interface ERC165, es por eso que en propio constructor de `CheckerERC165` se añade el selector de esta interface. 
+
+### 2.2 Interfaz ERC721TokenReceiver
+Realmente el estandar ERC721 contiene cuatro interfaces diferentes:
+* Una para el contrato general ERC721
+* Otra para contratos que pueden recibir tokens ERC721
+* Otras dos para extensiones opcionales que añaden funcionalidades extra.
+
+Vamos a ver ahora esa segunda interface. No es obligatorio que nuestro token ERC721 herede de esta interface y como el nombre indica sirve para aquellos contratos que tienen que recibir tokens ERC721. La funcion que implementa esta interface `onERC721Received` se utiliza cuando se transfiere un token via `ERC721.safeTransferFrom` y se encarga de devolver su propio selector, es decir, `bytes4(keccak256("onERC721Received(address, address, uint256, bytes)"))`. Cualquier otro valor que se devuelva que no sea ese, hara que no se llegue a realizar la transferencia y esta sera revertida.
+
+### 2.3 Interface IERC721
+
+Vamos a ver cuales son las funciones que implementaremos luego en el punto **2.4**:
+
+```solidity
+function balanceOf(address owner) external view returns(uint256 balance);
+```
+* Función `balanceOf`: Permite ver la cantidad de tokens que posee una direción `owner`.
+
+```solidity
+function ownerOf(uint256 tokenId) external view returns(address owner);
+```
+* Función `ownerOf`: Permite saber quien es el dueño de cierto token mediante su identificativo `tokenId`.
+
+```solidity
+function safeTransferFrom(address from, address to, uint256 tokenId) external;
+```
+* Función `safeTransferFrom`: Permite realizar la transferencia de un token desde una cuenta `from` hacia una cuenta `to`. Los requerimientos para esta función son los siguientes:
+  * `from`: No puede ser cero
+  * `to`: No puede ser cero
+  * `tokenId`: El token tiene que existir y que su dueño sea `from`
+  * Si el que llama a la función no es `from`, se tiene que comprobar, que este le ha autorizado a transferir ese token mediante `approve` o `setApprovalForAll`
+  * Si `to` hace referencia a un smart contract, este tiene que implementar `IERC721Receiver.onERC721Received`, a la cual se llama durante la ejecucion de safe transfer
+  
+  Emite un evento Transfer. 
+
+```solidity
+function safeTransferFrom(address from, address to, uint256 tokenId, bytes data) external;
+```
+
+* Función `safeTransferFrom`: Exactamente igual que `safeTransferFrom` pero tambien permite añadir datos.
+
+```solidity
+function transferFrom(address from, address to, uint256 tokenId) external;
+```
+
+* Función `transferFrom`: Permite realizar la transferencia de un token desde una cuenta `from` hacia una cuenta `to`. La persona que llama a la función tiene que asegurarse que la cuenta que recibe el token puede hacerlo. Es mucho menos segura que `safeTransferFrom` y esta ultima es la que se deberia utilizar en cualquier caso. 
+
+```solidity
+function approve(address to, uint256 tokenId) external;
+```
+
+* Función `approve`: Da permisos a la dirección `to` para transferir el token con el `tokenId` a otra cuenta. Este permiso se limpia cuando el token es transferido a otra cuenta (mediante el uso de `address(0)`). Un token solo puede tener este tipo de permisos para una cuenta. Requerimientos de esta función:
+  * La cuenta que llama a esta función tiene que ser el dueño del token `tokenId` o ser un operador aprobado por el dueño del token.
+  * El token `tokenId` tiene que existir   
+
+  Emite un evento Approval.
+
+
+```solidity
+function setApprovalForAll(address operator, bool _approved) external;
+```
+
+* Función `setApprovalForAll`: Aprueba o elimina a un operador como operador para la cuenta a la que llama a la función. Si se aprueba, el operador seria capaz de llamar a la función `transferFrom` o `safeTransferFrom` para cualquier token del dueño. Requerimientos para esta función: 
+  * El `operator` no puede ser el owner
+  
+  Emite un evento ApprovalForAll.
+
+```solidity
+function getApproved(uint256 tokenId) external view returns(address operator);
+```
+
+* Función `getApproved`: Devuelve el operador al que el dueño del token `tokenId` ha dado permisos.
+
+```solidity
+function isApprovedForAll(address owner, address operator) external view returns(bool);
+```
+
+* Función `isApprovedForAll`: Devuelve si el `operator` tiene permisos para todos los tokens del `owner`.
+
+
+
+### 2.4 Implementación token ERC721
+
+A la hora de implementar el estandar ERC721 vamos a seguir las siguientes premisas:
+1. Se establecerá un supply de tokens durante la creación del token, los cuales, pertencerán todos al creador.
+2. Una función, que solo se podra llamar por el creador, permitirá generar mas tokens cuando se llame. Estos nuevos tambien pertenecerán al creador en un inicio. 
+
+Vamos a empezar con la implementación, para ello, comenzaremos con el inicio del fichero tal que asi:
+
+```solidity
+pragma solidity ^0.8.0;
+
+import "./CheckERC165.sol";
+import "./interfaces/IERC721.sol";
+import "./ERC721TokenReceiver.sol";
+import "./libraries/SafeMath.sol";
+```
+
+
+
+
+## **3.** Providers, signers, ABIs y Approval Flows
+### 3.1 Providers y signers
 En Ethereum, para escribir o leer datos en la blockchain es necesario comunicarse a través de un nodo de Ethereum. Cada nodo tendra un estado dentro de la blockchain, que nos permitirá leer datos, mientras que si queremos escribirlos, será necesario el envio de transacciones.
 
 Un `provider`, es una conexión a un nodo de Ethereum que nos permite leer datos. Se usarán cuando llamemos a funciones que solo lean datos, obtengan el balance de alguna cuenta, obtengan información sobre alguna transacción, etc.
@@ -146,14 +301,14 @@ Un `signer`, es una conexión a un nodo de Ethereum que nos permite escribir dat
 
 Por ejemplo, Metamask, inyecta un `provider` en nuestro navegador, de manera, que otras aplicaciones puedan utilizar ese mismo `provider` para leer datos de la blockchain donde nuestra billetera este conectada. Como Metamask no puede ir por ahi compartiendo nuestra clave privada, lo que hace es permitir a las dApps obtener un `signer`. De esta manera cuando queremos enviar una transaccion con metamask a través de la blockchain, la ventana de Metamask salta preguntando al usuario si quiere confirmar esa transacción.
 
-### 2.2 BigNumbers
+### 3.2 BigNumbers
 Cuando programamos con solidity, estamos muy acostumbrados a utilizar `uint256`, que tienen un rango que va desde `0` hasta `(2^256) - 1`, lo cual es un rango enorme. De normal se construyen interfaces con Javascript. El problema esque el tipo de dato `number` de Javascript tiene un limite mucho mas bajo que `uint256`.
 
 Imaginemos que Javascript llama a una función de un smart contract que devuelve un `uint256` muchísimo mas grande que lo que soporta un numero en Javascript, bien, simplemente, no lo soporta. Para ello, existe un tipo especial denominado `BigNumber`, y librerias como `ethers.js` y `web3.js`, ya tienen integrado soporte para `BigNumber`.
 
 `BigNumber` es una libreria para Javascript que implementa funciones matemáticas como `add`, `sub`, `mul`, `div`, etc.
 
-### 2.3 ABI
+### 3.3 ABI
 Las siglas ABI provienen de **A**plication **B**inary **I**nterface.
 
 Cuando se compila código de Solidity, lo hace bajo el bytecode, que a final de cuentas es binario. Este no contiene ni que funciones existen en el contrato, ni que parametros contiene, ni que valores devuelven. No obstante, si quieres llamar a una funcion de Solidity desde dentro de una aplicacion web, necesitas alguna manera de llamar al bytecode correcto, es decir, necesitas convertir el nombre de las funciones y parametros a bytecode y viceversa. 
@@ -198,7 +353,7 @@ function suma(uint num1, uint num2) public pure returns(uint) {
 }
 ```
 
-### 2.4 ERC20 Approval flow
+### 3.4 ERC20 Approval flow
 Si queremos pagar o aceptar pagos de tokens ERC20, no es tan simple como llamar a una funcion `payable`. Esta función solo es buena para pagos de ETH. 
 
 Para ello, el smart contract tendrá que, de alguna manera, substraer tokens de la persona que llame a dicha función. Aqui es cuando entra el flujo `Approve and transfer`.
