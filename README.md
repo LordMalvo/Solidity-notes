@@ -283,8 +283,75 @@ import "./ERC721TokenReceiver.sol";
 import "./libraries/SafeMath.sol";
 ```
 
+Como hemos dicho antes, se necesita la implementación de ERC165, la interface IERC721, la interfaz ERC721TokenReceiver y SafeMath para cuando tengamos que hacer calculos.
 
+```solidity
+contract TokenERC721 is ERC721, CheckERC165 {
+  using SafeMath for uint256;
 
+  address internal creator;
+
+  // Cantidad de tokens que tiene cada cuenta
+  mapping (address => uint256) internal balances;
+
+  //Dado un tokenId, que dirección es su owner
+  mapping (uint256 => address) internal owners;
+
+  //Dado un tokenId, a que cuenta a dado permisos el dueño
+  mapping (uint256 => address) internal allowances;
+
+  //Dada una dirección, que direcciones tienen permitido usar todos sus tokens
+  mapping (address => mapping(address => bool)) internal authorised;
+}
+```
+
+Esos serian las principales variables que necesitariamos para gestionar el token, podrian haber mas si queremos implementar mas funcionalidades, pero esto es para las básicas. Ahora vamos con el constructor:
+
+```solidity
+contract TokenERC721 is ERC721, CheckERC165 {
+  constructor(uint256 _initialSupply) {
+    creator = msg.sender;
+
+    balances[msg.sender] = _initialSupply;
+
+    //ERC165 interface check
+    supportedInterfaces[
+      this.balanceOf.selector ^
+      this.ownerOf.selector ^
+      bytes4(keccak256("safeTransferFrom(address,address,uint256)")) ^
+      bytes4(keccak256("safeTransferFrom(address,address,uint256,bytes)")) ^
+      this.transferFrom(address,address) ^
+      this.approve.selector ^
+      this.setApprovalForAll.selector ^
+      this.getApproved.selector ^
+      this.isApprovedForAll.selector
+    ] = true;
+  }
+}
+```
+
+Es decir, estamos cogiendo todas las funciones de la interfac IERC721 anteriormente explicada, y calculando su `interfaceId` mediante la operacion XOR entre todas ellas. Se ha utilizado la estructura `bytes4(...` en las funciones `safeTransferFrom` debido a que si nos, se produce lo que se conoce como *overload* en esta función, por lo tanto, si lo intentamos hacer mediante `.selector` lanzaria un `TypeError`. El *overload* se produce cuando existen varias funciones con exactamente el mismo nombre pero diferente cantidad de parametros.
+
+```solidity
+function _exist(uint256 _tokenId) internal view returns(bool) {
+  return owners[_tokenId] != address(0);
+}
+```
+
+Esta función va a ser necesaria para las siguientes que vamos a implementar, simplemente comprueba que un token exista, esto quiere decir, que se le haya asignado un dueño.
+
+Vamos a ver la implementación de las primeras funciones:
+
+```solidity
+function balanceOf(address _owner) public view returns(uint256 balance){
+  return balances[_owner];
+}
+
+function ownerOf(uint256 _tokenId) public view returns(address owner){
+  require(_exist(_tokenId), "ERROR: El token no existe");
+  return owners[_tokenId];
+}
+```
 
 ## **3.** Providers, signers, ABIs y Approval Flows
 ### 3.1 Providers y signers
