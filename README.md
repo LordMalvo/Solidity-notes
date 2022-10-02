@@ -1,8 +1,8 @@
 # Solidity-notes
 
 ## Indice
-### 1. **[Implementación ERC20](#implementación-erc20)**
-* **[Interfaz IERC20](#interfaz-ierc20)**
+### 1. **[Implementación ERC20](#1-implementación-erc20)**
+* **[Interfaz IERC20](#11-interfaz-ierc20)**
 ### 2. **[Providers, signers, ABIs y Approval Flows](#providers,-signers,-abis-y-approval-flows)**
 * **[Providers y signers](#providers-y-signers)**
 * **[BigNumbers](#bignumbers)**
